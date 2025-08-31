@@ -35,16 +35,23 @@ while True:
 
 # LED fade in/out
 
-# pwm = machine.PWM(machine.Pin(25))  # RP2040 onboard LED pin number
+# # Create a PWM object on pin 25 (onboard LED of Pico)
+# pwm = machine.PWM(machine.Pin(25))
+# # Set the PWM freq to 1000 Hz (1 kHz) so brightness changes look smooth
 # pwm.freq(1000)
 
 
 # def ramp(start, stop, step, dwell_ms=6):
-#     for v in range(start, stop, step):
-#         pwm.duty_u16(v)
-#         utime.sleep_ms(dwell_ms)
+#     """
+#     Gradually change PWM duty cycle from 'start' to 'stop'
+#     in increments of 'step', waiting 'dwell_ms' milliseconds
+#     at each step.
+#     """
+#     for v in range(start, stop, step): # Loop through duty cycle values
+#         pwm.duty_u16(v)  # Set LED brightness (0=off, 65535=full on)
+#         utime.sleep_ms(dwell_ms)  # Short pause so fade is visible
 
-
+# # Main loop: fade in, then fade out, continuously
 # while True:
-#     ramp(0, 65535, 256)
-#     ramp(65535, 0, -256)
+#     ramp(0, 65535, 256)  # Fade in: 0 -> full brightness
+#     ramp(65535, 0, -256)  # Fade out: full brightness -> 0
