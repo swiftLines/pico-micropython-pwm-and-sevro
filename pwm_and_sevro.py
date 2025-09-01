@@ -2,7 +2,7 @@ import machine
 import utime
 
 
-# ***** Servo sweep *****
+# ***** Servo sweep using angle math *****
 
 # Define which pin the servo is connected to (GPIO15)
 SERVO_PIN = 15
@@ -47,6 +47,41 @@ while True:
     for a in range(180, -1, -5):  # 180 -> 0 in steps of 5°
         write_angle(a)
         utime.sleep_ms(30)
+
+
+# ***** Servo control by pulse width *****
+
+# # Use GPIO15
+# SERVO_PIN = 15
+# servo = machine.PWM(machine.PIN(SERVO_PIN))
+
+# # ~50 Hz PWM (20 ms cycle)
+# servo.freq(50)
+
+
+# # Set pulse width directly in microseconds
+# def write_us(us):
+#     """
+#     Convert a pulse width in microseconds into a duty_u16 value.
+#     Example: 500 -> ~0°, 1500 -> ~90°, 2400 -> ~180°.
+#     """
+#     PERIOD_US = 20000 # 20 ms (50 Hz)
+#     duty = int(us / PERIOD_US * 65535)
+#     servo.duty_u16(duty)
+
+
+# while True:
+#     # Move to 0 degrees (500 µs pulse)
+#     write_us(500)
+#     utime.sleep(1)  # wait 1 second
+
+#     # Move to 90 degrees (1500 µs pulse)
+#     write_us(1500)
+#     utime.sleep(1)
+
+#     # Move to 180 degrees (2500 µs pulse)
+#     write_us(2500)
+#     utime.sleep(1)
 
 
 # ***** LED fade in/out *****
