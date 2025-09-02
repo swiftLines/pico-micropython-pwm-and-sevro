@@ -19,11 +19,11 @@ def write_us(us):
     servo.duty_u16(duty)
 
 # Preset pulse widths ≈ 0°, 90°, ~180°
-PRESETS_US = [600, 1500, 2400]
+PRESETS_US = [500, 1500, 2400]
 idx = 0
 write_us(PRESETS_US[idx])  # start at first preset
 
-# --- Button (internal pull-up): wire button between GP14 and GND ---
+# --- Button (internal pull-up) ---
 btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
 
 DEBOUNCE_MS = 25
