@@ -1,52 +1,90 @@
 import machine
 import utime
 
+# ***** Control Servo with button *****
+
+# --- Pins ---
+SERVO_PIN = 15  # signal wire to the servo
+BTN_PIN   = 14  # momentary button
+
+# --- Servo setup ---
+servo = machine.PWM(machine.Pin(SERVO_PIN))
+servo.freq(50)  # 50 Hz (20 ms period)
+PERIOD_US = 20000
+
+def write_us(us):
+    # Convert microseconds to duty_u16
+    us = max(500, min(2500, int(us)))  # clamp for safety
+    duty = int(us / PERIOD_US * 65535)
+    servo.duty_u16(duty)
+
+# Preset pulse widths ≈ 0°, 90°, ~180°
+PRESETS_US = [600, 1500, 2400]
+idx = 0
+write_us(PRESETS_US[idx])  # start at first preset
+
+# --- Button (internal pull-up): wire button between GP14 and GND ---
+btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+
+DEBOUNCE_MS = 25
+
+while True:
+    if btn.value() == 0:               # pressed (active-low)
+        utime.sleep_ms(DEBOUNCE_MS)    # debounce
+        if btn.value() == 0:
+            idx = (idx + 1) % len(PRESETS_US)
+            write_us(PRESETS_US[idx])
+            # wait for release so servo only advances once per press
+            while btn.value() == 0:
+                utime.sleep_ms(5)
+    utime.sleep_ms(5)
+
 
 # ***** Servo sweep using angle math *****
 
-# Define which pin the servo is connected to (GPIO15)
-SERVO_PIN = 15
-# Create a PWM object on that pin
-servo = machine.PWM(machine.Pin(SERVO_PIN))
-# Standard hobby servos use ~50 Hz PWM (20 ms cycle)
-servo.freq(50) 
+# # Define which pin the servo is connected to (GPIO15)
+# SERVO_PIN = 15
+# # Create a PWM object on that pin
+# servo = machine.PWM(machine.Pin(SERVO_PIN))
+# # Standard hobby servos use ~50 Hz PWM (20 ms cycle)
+# servo.freq(50) 
 
 
-# Pulse widths in microseconds for min/max angles
-MIN_US = 500  # 0.5 ms pulse -> servo at 0 degrees
-MAX_US = 2500  # 2.5 ms pulse -> servo at 180 degrees
-PERIOD_US = 20000  # 20 ms total period at 50 Hz 
+# # Pulse widths in microseconds for min/max angles
+# MIN_US = 500  # 0.5 ms pulse -> servo at 0 degrees
+# MAX_US = 2500  # 2.5 ms pulse -> servo at 180 degrees
+# PERIOD_US = 20000  # 20 ms total period at 50 Hz 
 
-def angle_to_duty_u16(angle):
-    """
-    Convert an angle (0-180°) into the 16-bit duty cycle value
-    expected by MicroPython's PWM (0-65535).
-    """
-    # Map the angle (0-180) to a pulse width (500-2500 microseconds)
-    us = MIN_US + (MAX_US - MIN_US) * angle / 180.0
-    # Convert pulse width into fraction of period, then scale to 16-bit range
-    duty = int(us / PERIOD_US * 65535)
-    # Clamp result to be safe (0-65535)
-    return max(0, min(65535, duty))
-
-
-def write_angle(a):
-    """
-    Tell the servo to go to a specific angle by setting the PWM duty cycle
-    """
-    servo.duty_u16(angle_to_duty_u16(a))
+# def angle_to_duty_u16(angle):
+#     """
+#     Convert an angle (0-180°) into the 16-bit duty cycle value
+#     expected by MicroPython's PWM (0-65535).
+#     """
+#     # Map the angle (0-180) to a pulse width (500-2500 microseconds)
+#     us = MIN_US + (MAX_US - MIN_US) * angle / 180.0
+#     # Convert pulse width into fraction of period, then scale to 16-bit range
+#     duty = int(us / PERIOD_US * 65535)
+#     # Clamp result to be safe (0-65535)
+#     return max(0, min(65535, duty))
 
 
-# Main loop: sweep back and forth between 0° and 180°
-while True:
-    # Sweep forward
-    for a in range(0, 181, 5):  # 0 -> 180 in steps of 5°
-        write_angle(a)  # Move servo to this angle
-        utime.sleep_ms(30)  # Wait for servo to move
-    # Sweep backward
-    for a in range(180, -1, -5):  # 180 -> 0 in steps of 5°
-        write_angle(a)
-        utime.sleep_ms(30)
+# def write_angle(a):
+#     """
+#     Tell the servo to go to a specific angle by setting the PWM duty cycle
+#     """
+#     servo.duty_u16(angle_to_duty_u16(a))
+
+
+# # Main loop: sweep back and forth between 0° and 180°
+# while True:
+#     # Sweep forward
+#     for a in range(0, 181, 5):  # 0 -> 180 in steps of 5°
+#         write_angle(a)  # Move servo to this angle
+#         utime.sleep_ms(30)  # Wait for servo to move
+#     # Sweep backward
+#     for a in range(180, -1, -5):  # 180 -> 0 in steps of 5°
+#         write_angle(a)
+#         utime.sleep_ms(30)
 
 
 # ***** Servo control by pulse width *****
