@@ -1,43 +1,102 @@
 import machine
 import utime
 
-# ***** Control Servo with button *****
+
+# ***** Control Servo Position with Potentiometer *****
 
 # --- Pins ---
-SERVO_PIN = 15  # signal wire to the servo
-BTN_PIN   = 14  # momentary button
+SERVO_PIN = 15  # PWM output to servo signal wire
+POT_PIN = 26  # ADC0 (wiper of potentiometer)
 
 # --- Servo setup ---
+FREQ_HZ   = 50  # servo frequency
 servo = machine.PWM(machine.Pin(SERVO_PIN))
-servo.freq(50)  # 50 Hz (20 ms period)
-PERIOD_US = 20000
+servo.freq(FREQ_HZ)
+
+# Period in microseconds at this frequency (keeps math correct if freq changes)
+PERIOD_US = int(1_000_000 // FREQ_HZ)
+
+# Tune these to YOUR servo's safe endpoints
+MIN_US = 500  # ~0°
+MAX_US = 2400  # ~180°
 
 def write_us(us):
-    # Convert microseconds to duty_u16
-    us = max(500, min(2500, int(us)))  # clamp for safety
-    duty = int(us / PERIOD_US * 65535)
+    # clamp for safety, then convert µs → duty_u16 for this period
+    if us < MIN_US: us = MIN_US
+    if us > MAX_US: us = MAX_US
+    duty = int(us * 65535 // PERIOD_US)
     servo.duty_u16(duty)
 
-# Preset pulse widths ≈ 0°, 90°, ~180°
-PRESETS_US = [500, 1500, 2400]
-idx = 0
-write_us(PRESETS_US[idx])  # start at first preset
+# --- ADC setup ---
+pot = machine.ADC(POT_PIN)   # reads 0..65535
 
-# --- Button (internal pull-up) ---
-btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+# Optional smoothing (EMA) to reduce jitter from the pot
+alpha = 0.15  # 0..1 (higher = snappier, lower = smoother)
+f = pot.read_u16()  # initialize filtered value
 
-DEBOUNCE_MS = 25
+def adc_to_us(adc_val):
+    """Map ADC 0..65535 → pulse width MIN_US..MAX_US."""
+    span = MAX_US - MIN_US
+    return MIN_US + (adc_val * span // 65535)
+
+
+last_print = utime.ticks_ms()
 
 while True:
-    if btn.value() == 0:               # pressed (active-low)
-        utime.sleep_ms(DEBOUNCE_MS)    # debounce
-        if btn.value() == 0:
-            idx = (idx + 1) % len(PRESETS_US)
-            write_us(PRESETS_US[idx])
-            # wait for release so servo only advances once per press
-            while btn.value() == 0:
-                utime.sleep_ms(5)
-    utime.sleep_ms(5)
+    raw = pot.read_u16()
+    # Exponential moving average for smooth motion
+    f = int(f + alpha * (raw - f))
+
+    us = adc_to_us(f)
+    write_us(us)
+
+    # print debug every ~200 ms (pulse width & approx angle)
+    now = utime.ticks_ms()
+    if utime.ticks_diff(now, last_print) >= 200:
+        angle = int((us - MIN_US) * 180 / (MAX_US - MIN_US)). # rough estimate
+        print("adc:", raw, "filt:", f, "us:", us, "angle≈", angle)
+        last_print = now
+
+    utime.sleep_ms(15)  # ~66 updates/sec
+
+
+# ***** Control Servo with button *****
+
+# # --- Pins ---
+# SERVO_PIN = 15  # signal wire to the servo
+# BTN_PIN   = 14  # momentary button
+
+# # --- Servo setup ---
+# servo = machine.PWM(machine.Pin(SERVO_PIN))
+# servo.freq(50)  # 50 Hz (20 ms period)
+# PERIOD_US = 20000
+
+# def write_us(us):
+#     # Convert microseconds to duty_u16
+#     us = max(500, min(2500, int(us)))  # clamp for safety
+#     duty = int(us / PERIOD_US * 65535)
+#     servo.duty_u16(duty)
+
+# # Preset pulse widths ≈ 0°, 90°, ~180°
+# PRESETS_US = [500, 1500, 2400]
+# idx = 0
+# write_us(PRESETS_US[idx])  # start at first preset
+
+# # --- Button (internal pull-up) ---
+# btn = machine.Pin(BTN_PIN, machine.Pin.IN, machine.Pin.PULL_UP)
+
+# DEBOUNCE_MS = 25
+
+# while True:
+#     if btn.value() == 0:               # pressed (active-low)
+#         utime.sleep_ms(DEBOUNCE_MS)    # debounce
+#         if btn.value() == 0:
+#             idx = (idx + 1) % len(PRESETS_US)
+#             write_us(PRESETS_US[idx])
+#             # wait for release so servo only advances once per press
+#             while btn.value() == 0:
+#                 utime.sleep_ms(5)
+#     utime.sleep_ms(5)
 
 
 # ***** Servo sweep using angle math *****
